@@ -1,6 +1,6 @@
 {
   "name": "@sovarto/sankey",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework-independent Sankey diagram engine (layout, SVG geometry, label collisions) following SankeyMATIC's style",
   "license": "MIT",
   "type": "module",

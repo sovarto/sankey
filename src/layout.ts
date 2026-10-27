@@ -802,12 +802,24 @@ function positionFlows(
     }
 
     // A flow skipping stages is placed through its shadow segments; it is drawn where its first
-    // segment leaves the source and its last segment enters the target.
+    // segment leaves the source and its last segment enters the target, and along the segments between.
     for (const flow of flows) {
         if (!flow.isAShadow || flow.shadowOf === undefined) continue;
         const original = flows[flow.shadowOf];
         if (flow.source === original.source) original.sy = flow.sy;
         if (flow.target === original.target) original.ty = flow.ty;
+    }
+    for (const flow of flows) {
+        if (!flow.hasAShadow) continue;
+        flow.route = flows
+            .filter(segment => segment.isAShadow && segment.shadowOf === flow.index)
+            .sort((a, b) => a.source.stage - b.source.stage)
+            .map(segment => ({
+                x0: segment.source.x + segment.source.dx,
+                y0: segment.source.y + segment.sy + flow.dy / 2,
+                x1: segment.target.x,
+                y1: segment.target.y + segment.ty + flow.dy / 2,
+            }));
     }
 }
 

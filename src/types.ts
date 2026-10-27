@@ -191,6 +191,11 @@ export interface InternalFlow {
     isAShadow?: boolean;
     shadowOf?: number;
     hasAShadow?: boolean;
+    /**
+     * For a flow skipping stages: its route through the space reserved for it in the stages between,
+     * one segment per stage step (centre line), so it is drawn around the nodes there.
+     */
+    route?: Array<{ x0: number; y0: number; x1: number; y1: number }>;
     sourceRow: number;
     useForVisiblePlacing?: boolean;
     weightedValue?: number;

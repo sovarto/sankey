@@ -58,6 +58,31 @@ describe('layout', () => {
         }
     })
 
+    it('draws a flow skipping stages around the nodes in the stages between', () => {
+        // A → D crosses the stages of B and C; it runs through the space reserved for it there.
+        const layout = computeSankeyLayout([
+            { source: 'A', target: 'B', value: 10 },
+            { source: 'B', target: 'C', value: 10 },
+            { source: 'C', target: 'D', value: 10 },
+            { source: 'A', target: 'D', value: 100 },
+            { source: 'A', target: 'X', value: 5 },
+            { source: 'X', target: 'Y', value: 5 },
+            { source: 'Y', target: 'D', value: 5 },
+        ], { width: 800, height: 400 })
+        const long = layout.flows.find(flow => flow.source.name === 'A' && flow.target.name === 'D')!
+        assert.equal(long.route?.length, 3)
+        const path = generateFlowPaths(layout).find(item => item.flow === long)!
+        assert.equal(path.d.match(/C/g)?.length, 3)
+        // In every stage it crosses, its band does not overlap a node there.
+        for (const segment of long.route!.slice(1)) {
+            const top = segment.y0 - long.dy / 2
+            const bottom = segment.y0 + long.dy / 2
+            for (const node of layout.nodes.filter(item => Math.abs(item.x + item.dx - segment.x0) < 1e-6)) {
+                assert.ok(bottom <= node.y + 1e-6 || top >= node.y + node.dy - 1e-6, `${node.name} lies in the band`)
+            }
+        }
+    })
+
     it('reorders nodes so fewer bands cross when reducing crossings', () => {
         // Relaxation stacks D above A and E below C, so E → A crosses C → D.
         const flows = [

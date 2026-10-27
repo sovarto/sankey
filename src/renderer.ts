@@ -75,13 +75,13 @@ export function generateFlowPaths(data: SankeyDiagramData): FlowPath[] {
         const sourceY = flow.source.y + flow.sy + flow.dy / 2;
         const targetY = flow.target.y + flow.ty + flow.dy / 2;
 
-        // Calculate control point offset based on curvature
-        const xi = d3.interpolateNumber(sourceX, targetX);
-        const x2 = xi(curvature);
-        const x3 = xi(1 - curvature);
-
-        // Create path
-        const d = `M${sourceX},${sourceY}C${x2},${sourceY} ${x3},${targetY} ${targetX},${targetY}`;
+        // One curve per stage step; a flow skipping stages runs straight through the space reserved for it between.
+        const segments = flow.route?.length ? flow.route : [ { x0: sourceX, y0: sourceY, x1: targetX, y1: targetY } ];
+        const d = segments.map((segment, index) => {
+            const xi = d3.interpolateNumber(segment.x0, segment.x1);
+            const curve = `C${xi(curvature)},${segment.y0} ${xi(1 - curvature)},${segment.y1} ${segment.x1},${segment.y1}`;
+            return `${index === 0 ? 'M' : 'L'}${segment.x0},${segment.y0}${curve}`;
+        }).join('');
 
         paths.push({
             d,
