@@ -57,6 +57,27 @@ describe('layout', () => {
             assert.ok(disjoint(out.map(flow => [ flow.sy, flow.sy + flow.dy ])), `out of ${node.name}: ${JSON.stringify(out.map(flow => [ flow.target.name, flow.sy, flow.dy ]))}`)
         }
     })
+
+    it('reorders nodes so fewer bands cross when reducing crossings', () => {
+        // Relaxation stacks D above A and E below C, so E → A crosses C → D.
+        const flows = [
+            { source: 'A', target: 'B', value: 456 },
+            { source: 'C', target: 'D', value: 8750 },
+            { source: 'C', target: 'A', value: 14754 },
+            { source: 'E', target: 'A', value: 1029 },
+        ]
+        const crossings = (reduceCrossings: boolean) => {
+            const layout = computeSankeyLayout(flows, { width: 800, height: 400, reduceCrossings })
+            const startY = (flow: typeof layout.flows[number]) => flow.source.y + flow.sy
+            const endY = (flow: typeof layout.flows[number]) => flow.target.y + flow.ty
+            return layout.flows.flatMap((a, i) => layout.flows.slice(i + 1)
+                .filter(b => a.source !== b.source && a.target !== b.target && a.source.stage === b.source.stage && a.target.stage === b.target.stage)
+                .filter(b => (startY(a) < startY(b)) !== (endY(a) < endY(b)))
+                .map(b => `${a.source.name}→${a.target.name} × ${b.source.name}→${b.target.name}`))
+        }
+        assert.deepEqual(crossings(false), [ 'C→D × E→A' ])
+        assert.deepEqual(crossings(true), [])
+    })
 })
 
 describe('label collisions', () => {

@@ -23,6 +23,14 @@ const rects = generateNodeRects(layout) // [{ x, y, width, height, color, ... }]
 const labels = generateLabels(layout) // positions and text pieces → <text>/<tspan>
 ```
 
+## Crossing reduction
+
+With `reduceCrossings: true` (automatic layout order only), the engine reorders nodes within their stages after the usual relaxation so fewer flows cross. It runs barycenter sweeps and swaps neighbouring nodes, weighting each crossing by the product of the two flows' values, so a thick band is kept away from other thick bands first. Flows that skip stages take part via their path through the intermediate stages. The new order is kept only if it crosses strictly less. The layout is then relaxed again with that order fixed.
+
+```ts
+computeSankeyLayout(flows, { width: 800, height: 400, reduceCrossings: true })
+```
+
 ## Label collisions
 
 Labels have a full and a compact form. Measure both in the browser, for example with `SVGTextElement.getBBox()` padded by `padLabelBox`, then let `resolveLabelCollisions` decide which labels to show compact. Labels with higher values keep their full form.

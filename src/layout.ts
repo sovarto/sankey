@@ -6,6 +6,7 @@
  */
 
 import * as d3 from './d3.ts';
+import { reduceStageCrossings } from './crossings.ts';
 import { IN, OUT, BEFORE, AFTER, DEFAULT_CONFIG, FONT_METRICS } from './types.ts';
 import type { SankeyFlow, SankeyConfig, InternalNode, InternalFlow, SankeyDiagramData, LabelPiece, ResolvedSankeyConfig, SankeyMargin } from './types.ts';
 
@@ -67,6 +68,7 @@ export function computeSankeyLayout(flows: SankeyFlow[], userConfig: SankeyConfi
         layoutOrder: userConfig.layoutOrder ?? DEFAULT_CONFIG.layoutOrder,
         attachIncompletesTo: userConfig.attachIncompletesTo ?? DEFAULT_CONFIG.attachIncompletesTo,
         iterations: userConfig.iterations ?? DEFAULT_CONFIG.iterations,
+        reduceCrossings: userConfig.reduceCrossings ?? DEFAULT_CONFIG.reduceCrossings,
         margin,
         labels: {
             show: userConfig.labels?.show ?? DEFAULT_CONFIG.labels.show,
@@ -180,7 +182,8 @@ export function computeSankeyLayout(flows: SankeyFlow[], userConfig: SankeyConfi
         cfg.nodeSpacingFactor / 100,
         cfg.layoutOrder === 'automatic',
         cfg.iterations,
-        cfg.attachIncompletesTo
+        cfg.attachIncompletesTo,
+        cfg.reduceCrossings && cfg.layoutOrder === 'automatic'
     );
 
     // Calculate flow positions
@@ -431,6 +434,7 @@ function positionNodes(
     autoLayout: boolean,
     iterations: number,
     attachIncompletesTo: AttachPosition,
+    reduceCrossings: boolean,
 ): void {
     const maxStage = stagesArr.length - 1;
 
@@ -528,37 +532,52 @@ function positionNodes(
         }
     }
 
-    // Iterative relaxation
-    let alpha = 1;
-    for (let i = 0; i < iterations; i++) {
-        alpha *= 0.99;
+    const relax = (lockOrder: boolean): void => {
+        let alpha = 1;
+        for (let i = 0; i < iterations; i++) {
+            alpha *= 0.99;
 
-        // Forward pass
-        relaxStages(stagesArr, nodes, flows, alpha, autoLayout, actualNodeSpacing, graphHeight, attachIncompletesTo);
+            // Forward pass
+            relaxStages(stagesArr, flows, alpha, autoLayout, lockOrder, actualNodeSpacing, graphHeight, attachIncompletesTo);
 
-        // Backward pass
-        const reversedStages = stagesArr.slice().reverse();
-        relaxStages(
-            reversedStages,
-            nodes,
-            flows,
-            alpha,
-            autoLayout,
-            actualNodeSpacing,
-            graphHeight,
-            attachIncompletesTo
-        );
+            // Backward pass
+            const reversedStages = stagesArr.slice().reverse();
+            relaxStages(
+                reversedStages,
+                flows,
+                alpha,
+                autoLayout,
+                lockOrder,
+                actualNodeSpacing,
+                graphHeight,
+                attachIncompletesTo
+            );
 
-        // Re-center diagram
-        const minY = Math.min(...nodes.map(n => n.y));
-        const maxY = Math.max(...nodes.map(n => n.y + n.dy));
-        const currentHeight = maxY - minY;
+            // Re-center diagram
+            const minY = Math.min(...nodes.map(n => n.y));
+            const maxY = Math.max(...nodes.map(n => n.y + n.dy));
+            const currentHeight = maxY - minY;
 
-        if (currentHeight < graphHeight) {
-            const offset = (graphHeight - currentHeight) / 2 - minY;
-            for (const node of nodes) {
-                node.y += offset;
+            if (currentHeight < graphHeight) {
+                const offset = (graphHeight - currentHeight) / 2 - minY;
+                for (const node of nodes) {
+                    node.y += offset;
+                }
             }
+        }
+    };
+
+    // Iterative relaxation
+    relax(false);
+
+    // Relaxation settles nodes where their flows pull them, which can leave bands crossing that
+    // could run side by side. Improve the order, then relax again keeping that order.
+    if (reduceCrossings) {
+        for (const stage of stagesArr) {
+            stage.sort((a, b) => a.y - b.y);
+        }
+        if (reduceStageCrossings(stagesArr)) {
+            relax(true);
         }
     }
 
@@ -572,10 +591,10 @@ function positionNodes(
 
 function relaxStages(
     stages: InternalNode[][],
-    nodes: InternalNode[],
     flows: InternalFlow[],
     alpha: number,
     autoLayout: boolean,
+    lockOrder: boolean,
     nodeSpacing: number,
     graphHeight: number,
     attachIncompletesTo: AttachPosition,
@@ -588,7 +607,7 @@ function relaxStages(
         }
 
         // Resolve collisions
-        resolveCollisions(stage, autoLayout, nodeSpacing, graphHeight);
+        resolveCollisions(stage, autoLayout, lockOrder, nodeSpacing, graphHeight);
 
         // Update flow positions within nodes
         positionFlowsInStage(stage, flows, autoLayout, attachIncompletesTo);
@@ -617,10 +636,18 @@ function computeNodeOffset(node: InternalNode, factor: number): number {
     return (targetCenter - nodeCenter) * factor;
 }
 
-function resolveCollisions(stage: InternalNode[], autoLayout: boolean, nodeSpacing: number, graphHeight: number): void {
-    // Sort by position
+function resolveCollisions(
+    stage: InternalNode[],
+    autoLayout: boolean,
+    lockOrder: boolean,
+    nodeSpacing: number,
+    graphHeight: number,
+): void {
+    // Sort by position, unless the stage array already holds an order to keep
     if (autoLayout) {
-        stage.sort((a, b) => a.y - b.y);
+        if (!lockOrder) {
+            stage.sort((a, b) => a.y - b.y);
+        }
     } else {
         // In exact mode, we need to consider the order of flows to shared targets
         // For two nodes flowing to the same target, their order should match the flow order

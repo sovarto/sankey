@@ -62,6 +62,11 @@ export interface SankeyConfig {
     attachIncompletesTo?: 'leading' | 'nearest' | 'trailing';
     /** Number of layout iterations (higher = better but slower) */
     iterations?: number;
+    /**
+     * Reorder nodes within their stages to reduce flows crossing each other, weighting each crossing
+     * by the product of the two flows' values (only with `layoutOrder: 'automatic'`).
+     */
+    reduceCrossings?: boolean;
     /** Margin settings */
     margin?: {
         top?: number;
@@ -222,6 +227,7 @@ export type ResolvedSankeyConfig = {
     layoutOrder: 'automatic' | 'exact';
     attachIncompletesTo: 'leading' | 'nearest' | 'trailing';
     iterations: number;
+    reduceCrossings: boolean;
     margin: SankeyMargin;
     labels: {
         show: boolean;
@@ -263,6 +269,7 @@ export const DEFAULT_CONFIG: ResolvedSankeyConfig = {
     layoutOrder: 'automatic',
     attachIncompletesTo: 'nearest',
     iterations: 25,
+    reduceCrossings: false,
     margin: { top: 18, right: 12, bottom: 20, left: 12 },
     labels: {
         show: true,
