@@ -3,6 +3,12 @@
   "version": "0.1.2",
   "description": "Framework-independent Sankey diagram engine (layout, SVG geometry, label collisions) following SankeyMATIC's style",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sovarto/sankey.git"
+  },
+  "homepage": "https://github.com/sovarto/sankey#readme",
+  "bugs": "https://github.com/sovarto/sankey/issues",
   "type": "module",
   "sideEffects": false,
   "exports": {

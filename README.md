@@ -49,6 +49,10 @@ npm test
 npm run build
 ```
 
+## Releasing
+
+Raise `version` in `package.json` and push to `main`. The workflow (`.github/workflows/publish.yml`) type-checks, tests and builds every push and pull request, and publishes to npm with provenance when that version is not on npm yet. It publishes via npm trusted publishing: on npmjs.com, under the package's settings, add GitHub Actions as trusted publisher with this repository and the workflow `publish.yml`. Without that, an npm automation token in the repository secret `NPM_TOKEN` works too.
+
 ## License
 
 MIT. Parts are derived from SankeyMATIC (ISC) and d3-sankey (BSD-3-Clause); their notices are included in [LICENSE](./LICENSE).
